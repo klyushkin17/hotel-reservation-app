@@ -1,7 +1,8 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QRadioButton, QPushButton, QLabel, QMainWindow
+
 from ConnectionManager import ConnectionManager
-from MainWindow import MainWindow
+from UserMainWindow import UserMainWindow
 
 class AuthorizationWindow(QWidget):
     def __init__(self):
@@ -11,12 +12,12 @@ class AuthorizationWindow(QWidget):
     def initUI(self):
         super().__init__()
         self.setWindowTitle('Выбор роли')
-        self.setGeometry(100, 100, 300, 150)
+        self.setFixedSize(300, 200)
 
         layout = QVBoxLayout()
 
         self.label = QLabel('Выберите роль:', self).setFixedWidth(200)  
-        
+    
 
         self.user_radio = QRadioButton('Пользователь', self)
         self.admin_radio = QRadioButton('Администратор', self)
@@ -35,14 +36,14 @@ class AuthorizationWindow(QWidget):
         if self.user_radio.isChecked():
             connection = ConnectionManager("hotelDatabaseAdmin")     
             IS_ADMIN = True
-            self.form1 = MainWindow(connection, IS_ADMIN)
+            self.form1 = UserMainWindow(connection, IS_ADMIN)
             self.form1.show()
             self.close()
 
         elif self.admin_radio.isChecked():
             connection = ConnectionManager("hotelDatabaseUser")
             IS_ADMIN = False
-            self.form1 = MainWindow(connection, IS_ADMIN)
+            #self.form1 = MainWindow(connection, IS_ADMIN)
             self.form1.show()
             self.close()
 
