@@ -25,7 +25,7 @@ class AuthorizationWindow(QWidget):
         self.select_button = QPushButton('Выбрать', self)
         self.select_button.clicked.connect(self.onSelectUserButtonClicked)
 
-        layout.addWidget(self.user_radio)
+        layout.addWidget(self.user_radio) 
         layout.addWidget(self.admin_radio)
         layout.addWidget(self.select_button)
 

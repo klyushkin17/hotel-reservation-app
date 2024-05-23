@@ -1,9 +1,11 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QRadioButton, QPushButton, QLabel, QMainWindow, QTableWidgetItem, QTableWidget, QHBoxLayout, QDateEdit, QAbstractItemView, QHeaderView
 from PyQt5.QtGui import QFont
 from ConnectionManager import ConnectionManager
+from PaymentWindow import PaymentWindow
 
 class UserMainWindow(QWidget):
     def __init__(self, conn, IS_ADMIN):
+    
         super().__init__()
         self.conn = conn
         
@@ -43,7 +45,23 @@ class UserMainWindow(QWidget):
         layout.addWidget(self.reserve_button)
 
         self.search_button.clicked.connect(self.onSearchBottonClicked)
-        
+        self.reserve_button.clicked.connect(self.onReserveButtonClicked)
+
+    def onReserveButtonClicked(self):
+        selected_row = self.table_widget.currentRow()
+        if selected_row < 0:
+            return
+
+        room_id = self.table_widget.item(selected_row, 0).text()
+        room = self.table_widget.item(selected_row, 1).text()
+        capacity = self.table_widget.item(selected_row, 2).text()
+        price = self.table_widget.item(selected_row, 3).text()
+
+        checkin_date = self.checkin_date.date()
+        checkout_date = self.checkout_date.date()
+
+        self.payment_window = PaymentWindow(room_id, room, capacity, price, checkin_date, checkout_date, self.conn)
+            
 
     def onSearchBottonClicked(self):
         checkin_date = self.checkin_date.date().toString("yyyy-MM-dd")
@@ -52,7 +70,7 @@ class UserMainWindow(QWidget):
         with self.conn as conn:
             with conn.cursor() as cursor:
                 sql_query = f"""
-                SELECT room, capacity, price
+                SELECT roomid, room, capacity, price
                 FROM room
                 WHERE roomid NOT IN (
                     SELECT roomid

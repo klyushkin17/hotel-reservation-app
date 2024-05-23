@@ -1,0 +1,112 @@
+--Вставка тестовых данных в таблицу--
+
+INSERT INTO room (roomid, room, capacity, price) VALUES
+    (1, 'A100', 2, 2000),
+    (2, 'A101', 4, 5600),
+	(3, 'A102', 3, 2600),
+    (4, 'A103', 1, 1500),
+	(5, 'A104', 2, 4000),
+    (6, 'B100', 3, 7000),
+	(7, 'B101', 4, 5000),
+    (8, 'B102', 2, 2000),
+	(9, 'B103', 1, 1000),
+    (10, 'B104', 2, 2500);
+
+INSERT INTO reservation (reservationid, clientid, roomid, reservationdate, checkindate, departure) VALUES
+    (1, 1, 1, '2024-05-20', '2024-06-01', '2024-06-05'),
+    (2, 2, 5, '2024-06-10', '2024-06-20', '2024-06-25'),
+	(3, 1, 2, '2024-06-10', '2024-06-20', '2024-06-25'),
+	(4, 3, 8, '2024-06-10', '2024-06-20', '2024-06-25');
+	
+INSERT INTO client (clientid, surname, name, phonenumber, email) VALUES (1, 'Иванов', 'Иван', '123456789', 'ivanov@example.com');
+INSERT INTO client (clientid, surname, name, phonenumber, email) VALUES (2, 'Петров', 'Петр', '987654321', 'petrov@example.com');
+INSERT INTO client (clientid, surname, name, phonenumber, email) VALUES (3, 'Алексеев', 'Алексей', '123354421', 'alekseev@aleksey.com');
+
+	
+INSERT INTO payment (paymentid, paymenttype, bankcardnumber, bankcardcode, bankcardstartyear, bankcardendyear, reservationid, totalprice) VALUES (1, 'Card', '1234567812345678', '123', '20', '25', 2, '10000');
+INSERT INTO payment (paymentid, paymenttype, bankcardnumber, bankcardcode, bankcardstartyear, bankcardendyear, reservationid, totalprice) VALUES (2, 'Cash', NULL, NULL, NULL, NULL, 4, '15000');
+INSERT INTO payment (paymentid, paymenttype, bankcardnumber, bankcardcode, bankcardstartyear, bankcardendyear, reservationid, totalprice) VALUES (3, 'Card', '1234567812345678', '123', '20', '25', 1, '24500');
+INSERT INTO payment (paymentid, paymenttype, bankcardnumber, bankcardcode, bankcardstartyear, bankcardendyear, reservationid, totalprice) VALUES (4, 'Cash', NULL, NULL, NULL, NULL, 3, '6500');
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\    
+--Запросы задания 2--
+--a--
+--Запрос, который проверяет, не истек ли срок действия карты у пользователя--
+SELECT c.surname, c.name, r.reservationdate, p.paymenttype,
+       CASE
+           WHEN CAST(p.bankcardendyear AS integer) < EXTRACT(YEAR FROM CURRENT_DATE) - 2000 THEN 'Истек'
+           ELSE 'Не истек'
+       END AS bankcard_expired
+FROM client c
+JOIN reservation r ON c.clientid = r.clientid
+JOIN payment p ON r.reservationid = p.reservationid;
+
+--b--
+--Создание представления для запроса, который приводит список бронирований--
+CREATE VIEW reservations_view AS
+SELECT rm.room, rm.capacity, c.surname, c.name, c.phonenumber, 
+	r.reservationdate, r.checkindate, r.departure, rm.price, p.totalprice
+FROM reservation r
+JOIN client c ON c.clientid = r.clientid
+JOIN payment p ON p.reservationid = r.reservationid
+JOIN room rm ON rm.roomid = r.roomid
+
+--c--
+----
+SELECT
+    r.room,
+    r.price,
+    (SELECT COUNT(*) FROM public.reservation res WHERE res.roomid = r.roomid) AS reservation_count
+FROM
+    public.room r
+WHERE
+    r.price > (
+        SELECT AVG(price) FROM public.room 
+    );
+    
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\    
+--Запросы задания 8--
+--Скалярная функция для получения полного имени клиента--
+REATE OR REPLACE FUNCTION get_fullname(client_id INT)
+RETURNS TEXT AS $$
+DECLARE
+    client_name TEXT;
+    client_surname TEXT;
+BEGIN
+    SELECT name, surname INTO client_name, client_surname
+    FROM client
+    WHERE clientid = client_id;
+
+    RETURN client_surname || ' ' || client_name;
+END;
+$$ LANGUAGE plpgsql;
+
+
+--Запрос, который использет скалярную функцию get_fullname--
+SELECT 
+    cl.clientid,
+    get_fullname(cl.clientid) AS full_name,
+    p.paymentid,
+    p.paymenttype,
+    r.reservationid,
+    r.reservationdate,
+    r.checkindate,
+    r.departure
+FROM client cl
+JOIN reservation r ON cl.clientid = r.clientid
+JOIN payment p ON r.reservationid = p.reservationid
+WHERE cl.clientid = 1;
+
+
+
+    
+
+
+
+
+
+
+	
+	
+	
+	
