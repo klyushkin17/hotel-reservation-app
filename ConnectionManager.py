@@ -17,7 +17,7 @@ class ConnectionManager:
                 host=self.__host,
                 client_encoding="utf8",
             )
-            print("Урррааа")
+            print("Соединение установлено")
             return self.connection
         except psycopg2.Error as e:
             print(f'Ошибка подключения к базе данных: {e}')

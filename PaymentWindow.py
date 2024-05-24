@@ -1,9 +1,14 @@
 from PyQt5.QtWidgets import QDialog, QPushButton, QLabel, QGridLayout
+from ConfirmPaymentWindow import ConfirmPaymentWindow
 
 class PaymentWindow(QDialog):
-    def __init__(self, room_id, room, capacity, price, checkin_date, checkout_date, conn):
+    def __init__(self, room_id, room, capacity, price, checkin_date, checkout_date, conn, clientId):
         super().__init__()
         self.conn = conn
+        self.clientId = clientId
+        self.roomId = room_id
+        self.checkin_date = checkin_date
+        self.checkout_date = checkout_date
         
         layout = QGridLayout() 
         self.setWindowTitle("Оплата")
@@ -42,5 +47,6 @@ class PaymentWindow(QDialog):
         self.exec_()
 
     def onPayButtonClicked(self):
-        
-        pass
+        self.confirm_payment_window = ConfirmPaymentWindow(self.conn, self.clientId, self.roomId, self.checkin_date, self.checkout_date, )
+        self.confirm_payment_window.show()
+        self.close()

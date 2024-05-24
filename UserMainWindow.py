@@ -8,6 +8,7 @@ class UserMainWindow(QWidget):
     
         super().__init__()
         self.conn = conn
+        self.clientId = clientId
         
         layout = QVBoxLayout()
         self.setWindowTitle("Бронирование номеров")
@@ -60,7 +61,7 @@ class UserMainWindow(QWidget):
         checkin_date = self.checkin_date.date()
         checkout_date = self.checkout_date.date()
 
-        self.payment_window = PaymentWindow(room_id, room, capacity, price, checkin_date, checkout_date, self.conn)
+        self.payment_window = PaymentWindow(room_id, room, capacity, price, checkin_date, checkout_date, self.conn, self.clientId)
             
 
     def onSearchBottonClicked(self):

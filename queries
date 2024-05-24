@@ -64,6 +64,23 @@ WHERE
         SELECT AVG(price) FROM public.room 
     );
 
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+--Запросы задания 4--
+--Содание триггера для всатвки и обновления данные, при этом просходит автозаполнение поля reservationdate--
+CREATE OR REPLACE FUNCTION set_current_date()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.reservationdate := CURRENT_DATE;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER auto_fill_reservationdate
+BEFORE INSERT OR UPDATE ON public.reservation
+FOR EACH ROW
+EXECUTE FUNCTION set_current_date();
+
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 --Запросы задания 6--
 --Создана хранимая процедура для добавления нового пользователя при условии, что такого еще нет--
@@ -132,6 +149,30 @@ FROM client cl
 JOIN reservation r ON cl.clientid = r.clientid
 JOIN payment p ON r.reservationid = p.reservationid
 WHERE cl.clientid = 1;
+
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\    
+--Запросы задания 9--
+--Запрос для создания роли hoteldatabaseadmin_role--
+CREATE ROLE hoteldatabaseadmin_role;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO hoteldatabaseadmin_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO hoteldatabaseadmin_role;
+
+--Запрос для создания роли hoteldatabaseuser_role--
+CREATE ROLE hoteldatabaseuser_role;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO hoteldatabaseuser_role;
+GRANT INSERT ON public.client TO hoteldatabaseuser_role;
+GRANT INSERT ON public.reservation TO hoteldatabaseuser_role;
+GRANT INSERT ON public.payment TO hoteldatabaseuser_role;
+
+--Запрос для создания пользователя hoteldatabaseuser и передача ему роли--
+CREATE USER hoteldatabaseuser WITH PASSWORD '12345678';
+GRANT hoteldatabaseuser_role TO hoteldatabaseuser;
+
+--Запрос для создания пользователя hoteldatabaseadmin и передача ему роли--
+CREATE USER hoteldatabaseadmin WITH PASSWORD '12345678';
+GRANT hoteldatabaseadmin_role TO hoteldatabaseadmin;
+
 
 
 

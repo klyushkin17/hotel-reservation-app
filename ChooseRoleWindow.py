@@ -36,14 +36,14 @@ class ChooseRoleWindow(QWidget):
     def onSelectUserButtonClicked(self):
         global IS_ADMIN
         if self.user_radio.isChecked():
-            connection = ConnectionManager("hotelDatabaseAdmin")     
+            connection = ConnectionManager("hoteldatabaseuser")     
             IS_ADMIN = True
             self.form1 = RegistrationWindow(connection, IS_ADMIN)
             self.form1.show()
             self.close()
 
         elif self.admin_radio.isChecked():
-            connection = ConnectionManager("hotelDatabaseUser")
+            connection = ConnectionManager("hoteldatabaseadmin")
             IS_ADMIN = False
             #self.form1 = MainWindow(connection, IS_ADMIN)
             self.form1.show()
