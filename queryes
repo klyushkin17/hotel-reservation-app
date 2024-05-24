@@ -63,6 +63,42 @@ WHERE
     r.price > (
         SELECT AVG(price) FROM public.room 
     );
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+--Запросы задания 6--
+--Создана хранимая процедура для добавления нового пользователя при условии, что такого еще нет--
+CREATE OR REPLACE PROCEDURE insert_client_get_last_index_transaction(
+    in_surname character varying(100),
+    in_name character varying(100),
+    in_phonenumber character varying(15),
+    in_email character varying(100)
+)
+LANGUAGE plpgsql 
+AS $$
+DECLARE
+    last_client_id integer;
+BEGIN
+    BEGIN
+        SELECT COALESCE(MAX(clientid), 0) INTO last_client_id
+        FROM public.client;
+
+        last_client_id := last_client_id + 1;
+
+        IF EXISTS (SELECT 1 FROM public.client WHERE phonenumber = in_phonenumber) THEN
+            RAISE EXCEPTION 'Пользователь с номером телефона % уже существует.', in_phonenumber;
+        ELSE
+            INSERT INTO public.client(clientid, surname, name, phonenumber, email)
+            VALUES (last_client_id, in_surname, in_name, in_phonenumber, in_email);
+        END IF;
+        
+    EXCEPTION
+        WHEN others THEN
+            ROLLBACK;
+            RAISE;
+    END;
+    COMMIT;
+END;
+$$;
     
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\    
 --Запросы задания 8--
@@ -96,6 +132,9 @@ FROM client cl
 JOIN reservation r ON cl.clientid = r.clientid
 JOIN payment p ON r.reservationid = p.reservationid
 WHERE cl.clientid = 1;
+
+
+
 
 
 

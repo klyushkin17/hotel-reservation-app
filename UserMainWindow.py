@@ -4,7 +4,7 @@ from ConnectionManager import ConnectionManager
 from PaymentWindow import PaymentWindow
 
 class UserMainWindow(QWidget):
-    def __init__(self, conn, IS_ADMIN):
+    def __init__(self, conn, clientId):
     
         super().__init__()
         self.conn = conn
