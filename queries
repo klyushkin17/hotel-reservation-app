@@ -1,4 +1,4 @@
---Вставка тестовых данных в таблицу--
+--Вставка данных в таблицу--
 
 INSERT INTO room (roomid, room, capacity, price) VALUES
     (1, 'A100', 2, 2000),
@@ -28,8 +28,65 @@ INSERT INTO payment (paymentid, paymenttype, bankcardnumber, bankcardcode, bankc
 INSERT INTO payment (paymentid, paymenttype, bankcardnumber, bankcardcode, bankcardstartyear, bankcardendyear, reservationid, totalprice) VALUES (3, 'Card', '1234567812345678', '123', '20', '25', 1, '24500');
 INSERT INTO payment (paymentid, paymenttype, bankcardnumber, bankcardcode, bankcardstartyear, bankcardendyear, reservationid, totalprice) VALUES (4, 'Cash', NULL, NULL, NULL, NULL, 3, '6500');
 
+
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\    
 --Запросы задания 2--
+CREATE TABLE client
+(
+    clientid integer PRIMARY KEY,
+    surname character varying(100) NOT NULL,
+    name character varying(100) NOT NULL,
+    phonenumber character varying(15) NOT NULL,
+    email character varying(100) ,
+);
+
+CREATE TABLE payment
+(
+    paymentid integer PRIMARY KEY,
+    paymenttype character varying(8) NOT NULL,
+    bankcardnumber character varying(16),
+    bankcardcode character varying(3),
+    bankcardstartyear character varying(2),
+    bankcardendyear character varying(2),
+    reservationid integer,
+    totalprice character varying(100),
+);
+
+CREATE TABLE reservation
+(
+    reservationid integer PRIMARY KEY,
+    clientid integer NOT NULL,
+    roomid integer NOT NULL,
+    reservationdate date NOT NULL,
+    checkindate date NOT NULL,
+    departure date NOT NULL,
+);
+
+CREATE TABLE room
+(
+    roomid integer PRIMARY KEY,
+    room character varying(4) NOT NULL,
+    capacity integer NOT NULL,
+    price integer NOT NULL,
+
+);
+
+ALTER TABLE IF EXISTS payment
+    ADD CONSTRAINT payment_reservationid_fkey FOREIGN KEY (reservationid)
+    REFERENCES reservation (reservationid);
+
+
+ALTER TABLE IF EXISTS reservation
+    ADD CONSTRAINT reservation_clientid_fkey FOREIGN KEY (clientid)
+    REFERENCES client (clientid);
+
+
+ALTER TABLE IF EXISTS reservation
+    ADD CONSTRAINT reservation_roomid_fkey FOREIGN KEY (roomid)
+    REFERENCES room (roomid);
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\    
+--Запросы задания 3--
 --a--
 --Запрос, который проверяет, не истек ли срок действия карты у пользователя--
 SELECT c.surname, c.name, r.reservationdate, p.paymenttype,
@@ -82,7 +139,377 @@ FOR EACH ROW
 EXECUTE FUNCTION set_current_date();
 
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+--Запросы задания 5--
+--Создание триггеров для вставки, заполнения и удаления для всех таблиц в БД--
+CREATE TRIGGER olap_add_client
+AFTER INSERT OR UPDATE OR DELETE ON client
+FOR EACH ROW EXECUTE FUNCTION olap_add();
+
+CREATE TRIGGER olap_add_room
+AFTER INSERT OR UPDATE OR DELETE ON room
+FOR EACH ROW EXECUTE FUNCTION olap_add();
+
+CREATE TRIGGER olap_add_reservation
+AFTER INSERT OR UPDATE OR DELETE ON reservation
+FOR EACH ROW EXECUTE FUNCTION olap_add();
+
+CREATE TRIGGER olap_add_payment
+AFTER INSERT OR UPDATE OR DELETE ON payment
+FOR EACH ROW EXECUTE FUNCTION olap_add();
+
+--Создание триггеров и функций к ним для автообновления id записей после удаления--
+--Для таблицы payment--
+CREATE OR REPLACE FUNCTION update_primary_key_sequence_payment()
+RETURNS TRIGGER AS $$
+DECLARE
+    counter INTEGER;
+BEGIN
+    counter := 0;
+    FOR i IN OLD.paymentid .. (SELECT MAX(paymentid) FROM payment)
+    LOOP
+        UPDATE payment
+        SET paymentid = i - counter
+        WHERE paymentid = i;
+        
+        counter := counter + 1;
+    END LOOP;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_update_primary_key_sequence_peyment
+AFTER DELETE ON payment
+FOR EACH ROW
+EXECUTE FUNCTION update_primary_key_sequence_payment();
+
+--Для таблицы client--
+CREATE OR REPLACE FUNCTION update_primary_key_sequence_client()
+RETURNS TRIGGER AS $$
+DECLARE
+    counter INTEGER;
+BEGIN
+    counter := 0;
+    FOR i IN OLD.clientid .. (SELECT MAX(clientid) FROM client)
+    LOOP
+        UPDATE client
+        SET clientid = i - counter
+        WHERE clientid = i;
+        
+        counter := counter + 1;
+    END LOOP;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_update_primary_key_sequence_client
+AFTER DELETE ON client
+FOR EACH ROW
+EXECUTE FUNCTION update_primary_key_sequence_client();
+
+--Для таблицы room--
+CREATE OR REPLACE FUNCTION update_primary_key_sequence_room()
+RETURNS TRIGGER AS $$
+DECLARE
+    counter INTEGER;
+BEGIN
+    counter := 0;
+    FOR i IN OLD.roomid .. (SELECT MAX(roomid) FROM room)
+    LOOP
+        UPDATE room
+        SET roomid = i - counter
+        WHERE roomid = i;
+        
+        counter := counter + 1;
+    END LOOP;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_update_primary_key_sequence_room
+AFTER DELETE ON room
+FOR EACH ROW
+EXECUTE FUNCTION update_primary_key_sequence_room();
+
+--Для таблицы reservation--
+CREATE OR REPLACE FUNCTION update_primary_key_sequence_reservation()
+RETURNS TRIGGER AS $$
+DECLARE
+    counter INTEGER;
+BEGIN
+    counter := 0;
+    FOR i IN OLD.reservationid .. (SELECT MAX(reservationid) FROM reservat)
+    LOOP
+        UPDATE reservation
+        SET reservationid = i - counter
+        WHERE reservationid = i;
+        
+        counter := counter + 1;
+    END LOOP;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_update_primary_key_sequence_reservation
+AFTER DELETE ON reservation
+FOR EACH ROW
+EXECUTE FUNCTION update_primary_key_sequence_reservation();
+
+--Создание триггеров и функций для удаление связанных с текущей таблице записей в других таблицах--
+--Удаление из таблицы reservation при удалении записи из таблицы client--
+CREATE OR REPLACE FUNCTION delete_related_reservations() 
+RETURNS TRIGGER AS $$
+BEGIN
+    DELETE FROM reservation
+    WHERE clientid = OLD.clientid;
+    
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_delete_related_reservations
+AFTER DELETE ON client
+FOR EACH ROW
+EXECUTE FUNCTION delete_related_reservations();
+
+
+--Удаление из таблицы reservation при удалении записи из таблицы room--
+CREATE OR REPLACE FUNCTION delete_related_to_rooms_reservations() 
+RETURNS TRIGGER AS $$
+BEGIN
+    DELETE FROM reservation
+    WHERE roomid = OLD.roomid;
+    
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_delete_related_to_rooms_reservations
+AFTER DELETE ON room
+FOR EACH ROW
+EXECUTE FUNCTION delete_related_to_rooms_reservations();
+
+
+--Удаление из таблицы payment при удаление записи из таблицы reservation--
+CREATE OR REPLACE FUNCTION delete_related_payments() 
+RETURNS TRIGGER AS $$
+BEGIN
+    DELETE FROM payment
+    WHERE reservationid = OLD.reservationid;
+    
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_delete_related_payments
+AFTER DELETE ON reservation
+FOR EACH ROW
+EXECUTE FUNCTION delete_related_payments();
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 --Запросы задания 6--
+--Функция для вставки данных в olap--
+CREATE OR REPLACE FUNCTION olap_add()
+RETURNS TRIGGER AS $$
+BEGIN
+	IF TG_OP = 'DELETE' THEN
+		INSERT INTO olap (operationtype, tablename, username, changeddata)
+		VALUES (TG_OP, TG_TABLE_NAME, current_user, row_to_json(OLD));
+		RETURN OLD;
+	ELSIF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+		INSERT INTO olap (operationtype, tablename, username, changeddata)
+		VALUES (TG_OP, TG_TABLE_NAME, current_user, row_to_json(NEW));
+		RETURN NEW;
+	END IF;
+	RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+--Функция, которая будет автозаполнять поле reservationdate в таблице reservation при вставке и обновлении--
+CREATE OR REPLACE FUNCTION set_current_date()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.reservationdate := CURRENT_DATE;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER auto_fill_reservationdate
+BEFORE INSERT OR UPDATE ON public.reservation
+FOR EACH ROW
+EXECUTE FUNCTION set_current_date();
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+--Запросы задания 7--
+--Функции для таблицы room--
+CREATE OR REPLACE FUNCTION add_room(
+    room_id_int INT,
+    room_name VARCHAR(4),
+    room_capacity INT,
+    room_price INT
+) RETURNS VOID AS $$
+BEGIN
+    INSERT INTO room (roomid, room, capacity, price)
+    VALUES (room_id_int, room_name, room_capacity, room_price);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION delete_room(
+    room_id_int INT
+) RETURNS VOID AS $$
+BEGIN
+    DELETE FROM room
+    WHERE roomid = room_id_int;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION update_room(
+    room_id_int INT,
+    new_room_name VARCHAR(4),
+    new_room_capacity INT,
+    new_room_price INT
+) RETURNS VOID AS $$
+BEGIN
+    UPDATE room
+    SET
+        room = new_room_name,
+        capacity = new_room_capacity,
+        price = new_room_price
+    WHERE roomid = room_id_int;
+END;
+$$ LANGUAGE plpgsql;
+
+--Функции для таблицы reservation--
+CREATE OR REPLACE FUNCTION add_reservation(
+    reservation_id_int INT,
+    client_id_int INT,
+    room_id_int INT,
+    reservation_date_date DATE,
+    checkin_date_date DATE,
+    departure_date_date DATE
+) RETURNS VOID AS $$
+BEGIN
+    INSERT INTO reservation (reservationid, clientid, roomid, reservationdate, checkindate, departure)
+    VALUES (reservation_id_int, client_id_int, room_id_int, reservation_date_date, checkin_date_date, departure_date_date);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION delete_reservation(
+    reservation_id_int INT
+) RETURNS VOID AS $$
+BEGIN
+    DELETE FROM reservation
+    WHERE reservationid = reservation_id_int;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION update_reservation(
+    reservation_id_int INT,
+    new_client_id_int INT,
+    new_room_id_int INT,
+    new_reservation_date DATE,
+    new_checkin_date DATE,
+    new_departure_date DATE
+) RETURNS VOID AS $$
+BEGIN
+    UPDATE reservation
+    SET
+        clientid = new_client_id_int,
+        roomid = new_room_id_int,
+        reservationdate = new_reservation_date,
+        checkindate = new_checkin_date,
+        departure = new_departure_date
+    WHERE reservationid = reservation_id_int;
+END;
+$$ LANGUAGE plpgsql;
+
+--Функции для таблицы client--
+CREATE OR REPLACE FUNCTION add_client(
+    client_id INT,
+    client_surname VARCHAR(100),
+    client_name VARCHAR(100),
+    phone_number VARCHAR(15),
+    client_email VARCHAR(100)
+) RETURNS VOID AS $$
+BEGIN
+    INSERT INTO client (clientid, surname, name, phonenumber, email)
+    VALUES (client_id, client_surname, client_name, phone_number, client_email);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION delete_client(
+    client_id INT
+) RETURNS VOID AS $$
+BEGIN
+    DELETE FROM client
+    WHERE clientid = client_id;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION update_client(
+    client_id INT,
+    client_surname VARCHAR(100),
+    client_name VARCHAR(100),
+    phone_number VARCHAR(15),
+    client_email VARCHAR(100)
+) RETURNS VOID AS $$
+BEGIN
+    UPDATE client
+    SET surname = client_surname, name = client_name, phonenumber = phone_number, email = client_email
+    WHERE clientid = client_id;
+END;
+$$ LANGUAGE plpgsql;
+
+--Функции для таблицы payment--
+CREATE OR REPLACE FUNCTION add_payment(
+    payment_id INT,
+    payment_type VARCHAR(8),
+    bank_card_number VARCHAR(16),
+    bank_card_code VARCHAR(3),
+    bank_card_start_year VARCHAR(2),
+    bank_card_end_year VARCHAR(2),
+    reservation_id INT,
+    total_price VARCHAR(100)
+) RETURNS VOID AS $$
+BEGIN
+    INSERT INTO payment (paymentid, paymenttype, bankcardnumber, bankcardcode, bankcardstartyear, bankcardendyear, reservationid, totalprice)
+    VALUES (payment_id, payment_type, bank_card_number, bank_card_code, bank_card_start_year, bank_card_end_year, reservation_id, total_price);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION delete_payment(
+    payment_id INT
+) RETURNS VOID AS $$
+BEGIN
+    DELETE FROM payment
+    WHERE paymentid = payment_id;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION update_payment(
+    payment_id INT,
+    payment_type VARCHAR(8),
+    bank_card_number VARCHAR(16),
+    bank_card_code VARCHAR(3),
+    bank_card_start_year VARCHAR(2),
+    bank_card_end_year VARCHAR(2),
+    reservation_id INT,
+    total_price VARCHAR(100)
+) RETURNS VOID AS $$
+BEGIN
+    UPDATE payment
+    SET paymenttype = payment_type, bankcardnumber = bank_card_number, bankcardcode = bank_card_code, 
+        bankcardstartyear = bank_card_start_year, bankcardendyear = bank_card_end_year, 
+        reservationid = reservation_id, totalprice = total_price
+    WHERE paymentid = payment_id;
+END;
+$$ LANGUAGE plpgsql;
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+--Запросы задания 8--
 --Создана хранимая процедура для добавления нового пользователя при условии, что такого еще нет--
 CREATE OR REPLACE PROCEDURE insert_client_get_last_index_transaction(
     in_surname character varying(100),
@@ -116,9 +543,33 @@ BEGIN
     COMMIT;
 END;
 $$;
-    
+
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\    
---Запросы задания 8--
+--Запросы задания 9--
+CREATE OR REPLACE FUNCTION delete_reservations_with_past_departure()
+RETURNS VOID AS $$
+DECLARE
+    current_date_var DATE := CURRENT_DATE;
+    
+    reservation_cursor CURSOR FOR 
+        SELECT * 
+        FROM reservation 
+        WHERE departure < current_date_var;
+BEGIN
+    OPEN reservation_cursor;
+    LOOP
+        EXIT WHEN NOT FOUND;
+        
+        DELETE FROM reservation
+        WHERE current of reservation_cursor;        
+    END LOOP;
+    CLOSE reservation_cursor;
+END;
+$$ LANGUAGE plpgsql;
+    
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\    
+--Запросы задания 10--
 --Скалярная функция для получения полного имени клиента--
 REATE OR REPLACE FUNCTION get_fullname(client_id INT)
 RETURNS TEXT AS $$
@@ -134,25 +585,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
---Запрос, который использет скалярную функцию get_fullname--
-SELECT 
-    cl.clientid,
-    get_fullname(cl.clientid) AS full_name,
-    p.paymentid,
-    p.paymenttype,
-    r.reservationid,
-    r.reservationdate,
-    r.checkindate,
-    r.departure
-FROM client cl
-JOIN reservation r ON cl.clientid = r.clientid
-JOIN payment p ON r.reservationid = p.reservationid
-WHERE cl.clientid = 1;
+--Векторная фукнция для получения комнат, которые еще не были забронированы в определенные даты--
+CREATE OR REPLACE FUNCTION get_available_rooms_query(checkin_date DATE, checkout_date DATE)
+RETURNS TABLE(roomid INT, room TEXT, capacity INT, price NUMERIC) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT roomid, room, capacity, price
+    FROM room
+    WHERE roomid NOT IN (
+        SELECT roomid
+        FROM reservation
+        WHERE ('$checkout_date' <= departure AND '$checkout_date' >= checkindate) OR ('$checkin_date' <= departure AND '$checkin_date' >= checkindate)
+    );
+END;
+$$ LANGUAGE plpgsql;
 
 
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\    
---Запросы задания 9--
+--Запросы задания 11--
 --Запрос для создания роли hoteldatabaseadmin_role--
 CREATE ROLE hoteldatabaseadmin_role;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO hoteldatabaseadmin_role;
@@ -172,6 +622,18 @@ GRANT hoteldatabaseuser_role TO hoteldatabaseuser;
 --Запрос для создания пользователя hoteldatabaseadmin и передача ему роли--
 CREATE USER hoteldatabaseadmin WITH PASSWORD '12345678';
 GRANT hoteldatabaseadmin_role TO hoteldatabaseadmin;
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\    
+--Запросы задания 12--
+--Создание таблицы OLAP--
+CREATE TABLE olap (
+	operationid SERIAL PRIMARY KEY,
+	timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	operationtype VARCHAR(100) NOT NULL,
+	tablename VARCHAR(100) NOT NULL,
+	username VARCHAR(100),
+	changeddata TEXT
+);
 
 
 
