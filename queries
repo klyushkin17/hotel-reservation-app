@@ -108,35 +108,171 @@ JOIN client c ON c.clientid = r.clientid
 JOIN payment p ON p.reservationid = r.reservationid
 JOIN room rm ON rm.roomid = r.roomid
 
+--Создание правил для обновления VIEW--
+CREATE OR REPLACE RULE client_update_rule AS
+ON UPDATE TO client
+DO INSTEAD
+  INSERT INTO reservations_view
+  SELECT rm.room, rm.capacity, NEW.surname, NEW.name, NEW.phonenumber, 
+         r.reservationdate, r.checkindate, r.departure, rm.price, p.totalprice
+  FROM reservation r
+  JOIN client c ON c.clientid = r.clientid
+  JOIN payment p ON p.reservationid = r.reservationid
+  JOIN room rm ON rm.roomid = r.roomid;
+
+CREATE OR REPLACE RULE payment_update_rule AS
+ON UPDATE TO payment
+DO INSTEAD
+  INSERT INTO reservations_view
+  SELECT rm.room, rm.capacity, c.surname, c.name, c.phonenumber, 
+         r.reservationdate, r.checkindate, r.departure, rm.price, NEW.totalprice
+  FROM reservation r
+  JOIN client c ON c.clientid = r.clientid
+  JOIN payment p ON p.reservationid = r.reservationid
+  JOIN room rm ON rm.roomid = r.roomid;
+
+CREATE OR REPLACE RULE reservation_update_rule AS
+ON UPDATE TO reservation
+DO INSTEAD
+  INSERT INTO reservations_view
+  SELECT rm.room, rm.capacity, c.surname, c.name, c.phonenumber, 
+         NEW.reservationdate, NEW.checkindate, NEW.departure, rm.price, p.totalprice
+  FROM reservation NEW
+  JOIN client c ON c.clientid = NEW.clientid
+  JOIN payment p ON p.reservationid = NEW.reservationid
+  JOIN room rm ON rm.roomid = NEW.roomid;
+
+CREATE OR REPLACE RULE room_update_rule AS
+ON UPDATE TO room
+DO INSTEAD
+  INSERT INTO reservations_view
+  SELECT NEW.room, NEW.capacity, c.surname, c.name, c.phonenumber, 
+         r.reservationdate, r.checkindate, r.departure, NEW.price, p.totalprice
+  FROM reservation r
+  JOIN client c ON c.clientid = r.clientid
+  JOIN payment p ON p.reservationid = r.reservationid
+  JOIN room NEW ON NEW.roomid = r.roomid;
+
 --c--
-----
-SELECT
-    r.room,
-    r.price,
-    (SELECT COUNT(*) FROM public.reservation res WHERE res.roomid = r.roomid) AS reservation_count
-FROM
-    public.room r
+--Запрос для создания материализированного представления, который выводит информацию о бронированях, суммарной цене всех номеров в бронировании и суммарной оплате по каждому бронированию--
+CREATE MATERIALIZED VIEW reservation_summary AS
+SELECT r.reservationid, r.clientid, r.roomid, r.reservationdate, r.checkindate, r.departure,
+       SUM(room.price) AS total_room_price,
+       SUM(CAST(p.totalprice AS DECIMAL)) AS total_payment
+FROM reservation r
+JOIN payment p ON r.reservationid = p.reservationid
+JOIN room ON r.roomid = room.roomid
+GROUP BY r.reservationid, r.clientid, r.roomid, r.reservationdate, r.checkindate, r.departure;
+
+--d--
+--Запрос для получение клиентов, даты его заезда и типа оплаты, у которых в номеер телефона есть приставка "123"--
+SELECT 
+    (SELECT c.surname FROM client c WHERE c.clientid = r.clientid) AS client_surname,
+    (SELECT r.checkindate FROM reservation r WHERE r.reservationid = p.reservationid) AS reservation_checkin,
+    (SELECT p.paymenttype FROM payment p WHERE p.reservationid = r.reservationid) AS payment_type
+FROM 
+    (SELECT reservationid, clientid FROM reservation) AS r
+JOIN payment p ON r.reservationid = p.reservationid
 WHERE
-    r.price > (
-        SELECT AVG(price) FROM public.room 
-    );
+    r.clientid IN 
+        (SELECT clientid FROM client WHERE phonenumber LIKE '%123%');
+
+
+--d--
+--Кореллированный запрос, который выводит клиентов, у которых суммарная стоимость всех их платежей превышает среднюю суммарную стоимость всех платежей в системе--
+SELECT c.clientid, c.surname, c.name
+FROM client c
+WHERE (
+    SELECT SUM(CAST(p.totalprice AS DECIMAL))
+    FROM payment p
+    WHERE p.reservationid IN (
+        SELECT r.reservationid
+        FROM reservation r
+        WHERE r.clientid = c.clientid
+    )
+) >
+(
+    SELECT AVG(CAST(totalprice AS DECIMAL))
+    FROM payment
+);
+
+--Кореллированный запрос, который выводит клиентов, у которых есть бронирования на самую дальнюю дату пребывания--
+SELECT c.clientid, c.surname, c.name
+FROM client c
+WHERE EXISTS (
+    SELECT 1
+    FROM reservation r
+    WHERE r.clientid = c.clientid
+    AND r.departure = (
+        SELECT MAX(departure)
+        FROM reservation
+        WHERE clientid = c.clientid
+    )
+);
+
+--Кореллированный запрос, который выводит клиентов, с наибольшим количеством бронирований за все время--
+SELECT c.clientid, c.surname, c.name
+FROM client c
+WHERE (
+    SELECT COUNT(*)
+    FROM reservation r
+    WHERE r.clientid = c.clientid
+) = (
+    SELECT MAX(reservations_count)
+    FROM (
+        SELECT COUNT(*) as reservations_count
+        FROM reservation
+        GROUP BY clientid
+    ) AS counts
+);
+
+--f--
+--Запрос для получение клиентов у которых общая сумма за все бронирования составла больше 1000 рублей--
+SELECT c.clientid, c.surname, c.name, SUM(CAST(p.totalprice AS DECIMAL)) AS total_payment
+FROM client c
+JOIN reservation r ON c.clientid = r.clientid
+JOIN payment p ON r.reservationid = p.reservationid
+GROUP BY c.clientid, c.surname, c.name
+HAVING SUM(CAST(p.totalprice AS DECIMAL)) > 1000;
+
+--g--
+--Запрос для получение клиентов у которых общая сумма за все бронирования составла больше 1000 рублей--
+SELECT * FROM client
+WHERE clientid = ANY(
+    SELECT r.clientid
+    FROM reservation r
+    JOIN payment p ON r.reservationid = p.reservationid
+    WHERE p.paymenttype = 'Cash'
+);
+
+--Запрос для получение клиентов у который наибольшее количество бронирований--
+SELECT c.*
+FROM client c
+WHERE c.clientid = ALL(
+    SELECT r.clientid
+    FROM reservation r
+    GROUP BY r.clientid
+    HAVING COUNT(r.reservationid) = (
+        SELECT MAX(reservation_count)
+        FROM (
+            SELECT COUNT(reservationid) AS reservation_count
+            FROM reservation
+            GROUP BY clientid
+        ) AS reservation_counts
+    )
+);
 
 
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 --Запросы задания 4--
---Содание триггера для всатвки и обновления данные, при этом просходит автозаполнение поля reservationdate--
-CREATE OR REPLACE FUNCTION set_current_date()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.reservationdate := CURRENT_DATE;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+--Содание индекса для таблицы client поля surname--
+CREATE INDEX idx_client_surname ON client (surname);
 
-CREATE TRIGGER auto_fill_reservationdate
-BEFORE INSERT OR UPDATE ON public.reservation
-FOR EACH ROW
-EXECUTE FUNCTION set_current_date();
+--Содание индекса для таблицы client поля phonenumber--
+CREATE INDEX idx_client_phonenumber_hash ON client USING hash (phonenumber);
+
+--Содание индекса для таблицы room поля room--
+CREATE INDEX idx_room_room_fts ON room USING gin (to_tsvector('english', room));
 
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 --Запросы задания 5--
