@@ -44,12 +44,12 @@ CREATE TABLE payment
 (
     paymentid integer PRIMARY KEY,
     paymenttype character varying(8) NOT NULL,
-    bankcardnumber character varying(16),
-    bankcardcode character varying(3),
-    bankcardstartyear character varying(2),
-    bankcardendyear character varying(2),
+    bankcardnumber character varying(20),
+    bankcardcode character varying(20),
+    bankcardstartyear character varying(20),
+    bankcardendyear character varying(20),
     reservationid integer,
-    totalprice character varying(100),
+    totalprice character varying(100)
 );
 
 CREATE TABLE reservation
@@ -245,7 +245,7 @@ WHERE clientid = ANY(
     WHERE p.paymenttype = 'Cash'
 );
 
---Запрос для получение клиентов у который наибольшее количество бронирований--
+--Запрос для получение клиентов, у которыx наибольшее количество бронирований--
 SELECT c.*
 FROM client c
 WHERE c.clientid = ALL(
@@ -376,7 +376,7 @@ DECLARE
     counter INTEGER;
 BEGIN
     counter := 0;
-    FOR i IN OLD.reservationid .. (SELECT MAX(reservationid) FROM reservat)
+    FOR i IN OLD.reservationid .. (SELECT MAX(reservationid) FROM reservation)
     LOOP
         UPDATE reservation
         SET reservationid = i - counter
@@ -482,14 +482,17 @@ EXECUTE FUNCTION set_current_date();
 --Запросы задания 7--
 --Функции для таблицы room--
 CREATE OR REPLACE FUNCTION add_room(
-    room_id_int INT,
     room_name VARCHAR(4),
     room_capacity INT,
     room_price INT
 ) RETURNS VOID AS $$
+DECLARE
+    last_room_id INT;
 BEGIN
+    SELECT MAX(roomid) INTO last_room_id FROM room;
+    
     INSERT INTO room (roomid, room, capacity, price)
-    VALUES (room_id_int, room_name, room_capacity, room_price);
+    VALUES (COALESCE(last_room_id, 0) + 1, room_name, room_capacity, room_price);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -520,16 +523,19 @@ $$ LANGUAGE plpgsql;
 
 --Функции для таблицы reservation--
 CREATE OR REPLACE FUNCTION add_reservation(
-    reservation_id_int INT,
     client_id_int INT,
     room_id_int INT,
     reservation_date_date DATE,
     checkin_date_date DATE,
     departure_date_date DATE
 ) RETURNS VOID AS $$
+DECLARE
+    last_reservation_id INT;
 BEGIN
+    SELECT MAX(reservationid) INTO last_reservation_id FROM reservation;
+    
     INSERT INTO reservation (reservationid, clientid, roomid, reservationdate, checkindate, departure)
-    VALUES (reservation_id_int, client_id_int, room_id_int, reservation_date_date, checkin_date_date, departure_date_date);
+    VALUES (COALESCE(last_reservation_id, 0) + 1, client_id_int, room_id_int, reservation_date_date, checkin_date_date, departure_date_date);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -564,15 +570,18 @@ $$ LANGUAGE plpgsql;
 
 --Функции для таблицы client--
 CREATE OR REPLACE FUNCTION add_client(
-    client_id INT,
     client_surname VARCHAR(100),
     client_name VARCHAR(100),
     phone_number VARCHAR(15),
     client_email VARCHAR(100)
 ) RETURNS VOID AS $$
+DECLARE
+    last_client_id INT;
 BEGIN
+    SELECT MAX(clientid) INTO last_client_id FROM client;
+    
     INSERT INTO client (clientid, surname, name, phonenumber, email)
-    VALUES (client_id, client_surname, client_name, phone_number, client_email);
+    VALUES (COALESCE(last_client_id, 0) + 1, client_surname, client_name, phone_number, client_email);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -601,7 +610,6 @@ $$ LANGUAGE plpgsql;
 
 --Функции для таблицы payment--
 CREATE OR REPLACE FUNCTION add_payment(
-    payment_id INT,
     payment_type VARCHAR(8),
     bank_card_number VARCHAR(16),
     bank_card_code VARCHAR(3),
@@ -610,9 +618,13 @@ CREATE OR REPLACE FUNCTION add_payment(
     reservation_id INT,
     total_price VARCHAR(100)
 ) RETURNS VOID AS $$
+DECLARE
+    last_payment_id INT;
 BEGIN
+    SELECT MAX(paymentid) INTO last_payment_id FROM payment;
+
     INSERT INTO payment (paymentid, paymenttype, bankcardnumber, bankcardcode, bankcardstartyear, bankcardendyear, reservationid, totalprice)
-    VALUES (payment_id, payment_type, bank_card_number, bank_card_code, bank_card_start_year, bank_card_end_year, reservation_id, total_price);
+    VALUES (COALESCE(last_payment_id, 0) + 1, payment_type, bank_card_number, bank_card_code, bank_card_start_year, bank_card_end_year, reservation_id, total_price);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -752,6 +764,9 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO hoteldatabaseuser_role;
 GRANT INSERT ON public.client TO hoteldatabaseuser_role;
 GRANT INSERT ON public.reservation TO hoteldatabaseuser_role;
 GRANT INSERT ON public.payment TO hoteldatabaseuser_role;
+GRANT INSERT ON public.olap TO hoteldatabaseuser_role;
+GRANT USAGE, SELECT ON SEQUENCE olap_operationid_seq TO hoteldatabaseuser_role;
+
 
 --Запрос для создания пользователя hoteldatabaseuser и передача ему роли--
 CREATE USER hoteldatabaseuser WITH PASSWORD '12345678';

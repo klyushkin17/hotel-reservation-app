@@ -1,12 +1,12 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QRadioButton, QPushButton, QLabel, QMainWindow, QTableWidgetItem, QTableWidget, QHBoxLayout, QDateEdit, QAbstractItemView, QHeaderView, QMessageBox
 from PyQt5.QtGui import QFont
+from PyQt5.QtCore import QDate
 from ConnectionManager import ConnectionManager
 from PaymentWindow import PaymentWindow
 from datetime import datetime
 
 class UserMainWindow(QWidget):
     def __init__(self, conn, clientId):
-    
         super().__init__()
         self.conn = conn
         self.clientId = clientId
@@ -61,16 +61,23 @@ class UserMainWindow(QWidget):
         capacity = self.table_widget.item(selected_row, 2).text()
         price = self.table_widget.item(selected_row, 3).text()
 
-        checkin_date = self.ultimateCheckinDate.date()
-        checkout_date = self.ultimateCheckoutDate.date()
+        checkin_date = QDate.fromString(self.ultimateCheckinDate, "yyyy-MM-dd")
+        checkout_date = QDate.fromString(self.ultimateCheckoutDate, "yyyy-MM-dd")
 
-        self.payment_window = PaymentWindow(room_id, room, capacity, price, checkin_date, checkout_date, self.conn, self.clientId)
+        self.payment_window = PaymentWindow(room_id, room, capacity, price, checkin_date, checkout_date, self.conn, self.clientId, self)
+        self.setDisabled(True)
+        self.payment_window.show()
+    
+    def unlockUserMainWindow(self):
+        self.setEnabled(True)
             
 
     def onSearchButtonClicked(self):
         checkin_date = self.checkin_date.date().toString("yyyy-MM-dd")
         checkout_date = self.checkout_date.date().toString("yyyy-MM-dd")
         current_date = datetime.now().strftime("%Y-%m-%d")
+
+        print(type(checkin_date))
 
         if (checkin_date >= checkout_date) or (checkin_date < current_date):  
             QMessageBox.warning(self, "Ошибка", "Некорректно выбраны даты")
