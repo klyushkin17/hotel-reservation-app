@@ -49,21 +49,30 @@ class RegistrationWindow(QWidget):
         lastname = self.lastname_input.text()
         phone = self.phone_input.text()
         email = self.email_input.text()
-        
-        if name and lastname and phone:
-            try:
-                with self.conn as conn:
-                    with conn.cursor() as cursor:
-                        cursor.execute("CALL insert_client_get_last_index_transaction(%s, %s, %s, %s, %s)", (lastname, name, phone, email, None))
-                        out_client_id = 0
-                        for record in cursor.fetchall():
-                            out_client_id = record[0]  
-                        conn.commit()
-                        QMessageBox.information(self, 'Успех', f'Пользователь зарегистрирован успешно с ID: {out_client_id}')
-            except Exception as e:
-                QMessageBox.warning(self, 'Ошибка', f'Ошибка при регистрации пользователя: {str(e)}')
+
+        if (not phone.isdigit()) and ('@' not in email) and email:
+            QMessageBox.warning(self, 'Ошибка', 'Некорректно введены номер и почта')
         else:
-            QMessageBox.warning(self, 'Ошибка', 'Пожалуйста, заполните обязательные поля!')
+            if not phone.isdigit():
+                QMessageBox.warning(self, 'Ошибка', 'Некорректно введен номер')
+            else:
+                if ('@' not in email) and email:
+                    QMessageBox.warning(self, 'Ошибка', 'Некорректно введена почка')
+                else:
+                    if name and lastname and phone:
+                        try:
+                            with self.conn as conn:
+                                with conn.cursor() as cursor:
+                                    cursor.execute("CALL insert_client_get_last_index_transaction(%s, %s, %s, %s, %s)", (lastname, name, phone, email, None))
+                                    out_client_id = 0
+                                    for record in cursor.fetchall():
+                                        out_client_id = record[0]  
+                                    conn.commit()
+                                    QMessageBox.information(self, 'Успех', f'Добро пожаловать!')
+                        except Exception as e:
+                            QMessageBox.warning(self, 'Ошибка', f'Пользователь с таким номером телефона уже существует')
+                    else:
+                        QMessageBox.warning(self, 'Ошибка', 'Пожалуйста, заполните обязательные поля!')
         
         self.user_main_window = UserMainWindow(self.conn, out_client_id)
         self.user_main_window.show()

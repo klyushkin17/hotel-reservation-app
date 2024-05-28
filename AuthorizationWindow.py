@@ -36,17 +36,17 @@ class AuthorizationWindow(QWidget):
                         conn.commit()
                         print(out_client_id)
             except Exception as e:
-                QMessageBox.warning(self, 'Ошибка', f'Ошибка при регистрации пользователя: {str(e)}')
+                QMessageBox.warning(self, 'Ошибка', f'Ошибка при авторизации пользователя')
         else:
-            QMessageBox.warning(self, 'Ошибка', 'Пожалуйста, заполните обязательные поля!')
+            QMessageBox.warning(self, 'Ошибка', 'Пожалуйста, введите номер телефона')
         
         if (out_client_id != None):
-            QMessageBox.information(self, 'Успех', f'Добро пожаловать')
+            QMessageBox.information(self, 'Успех', f'Добро пожаловать!')
             self.user_main_window = UserMainWindow(self.conn, out_client_id)
             self.user_main_window.show()
             self.close()
         else:
-            QMessageBox.information(self, 'Ошибка', 'Пользоватля не существует')
+            QMessageBox.information(self, 'Ошибка', 'Пользоватль с таким номером не существует')
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

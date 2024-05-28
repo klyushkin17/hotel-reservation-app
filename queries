@@ -178,7 +178,7 @@ WHERE
         (SELECT clientid FROM client WHERE phonenumber LIKE '%123%');
 
 
---d--
+--e--
 --Кореллированный запрос, который выводит клиентов, у которых суммарная стоимость всех их платежей превышает среднюю суммарную стоимость всех платежей в системе--
 SELECT c.clientid, c.surname, c.name
 FROM client c
@@ -647,18 +647,19 @@ $$ LANGUAGE plpgsql;
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 --Запросы задания 8--
 --Создана хранимая процедура для добавления нового пользователя при условии, что такого еще нет--
-CREATE OR REPLACE PROCEDURE insert_client_get_last_index_transaction(
-    in_surname character varying(100),
-    in_name character varying(100),
-    in_phonenumber character varying(15),
-    in_email character varying(100)
-)
-LANGUAGE plpgsql 
-AS $$
+CREATE OR REPLACE PROCEDURE public.insert_client_get_last_index_transaction(
+	IN in_surname character varying,
+	IN in_name character varying,
+	IN in_phonenumber character varying,
+	IN in_email character varying,
+	OUT out_client_id integer)
+LANGUAGE 'plpgsql'
+AS $BODY$
 DECLARE
     last_client_id integer;
 BEGIN
     BEGIN
+		
         SELECT COALESCE(MAX(clientid), 0) INTO last_client_id
         FROM public.client;
 
@@ -666,9 +667,10 @@ BEGIN
 
         IF EXISTS (SELECT 1 FROM public.client WHERE phonenumber = in_phonenumber) THEN
             RAISE EXCEPTION 'Пользователь с номером телефона % уже существует.', in_phonenumber;
-        ELSE
-            INSERT INTO public.client(clientid, surname, name, phonenumber, email)
+        ELSE	
+			INSERT INTO public.client(clientid, surname, name, phonenumber, email)
             VALUES (last_client_id, in_surname, in_name, in_phonenumber, in_email);
+            out_client_id := last_client_id;
         END IF;
         
     EXCEPTION
@@ -676,9 +678,10 @@ BEGIN
             ROLLBACK;
             RAISE;
     END;
+
     COMMIT;
 END;
-$$;
+$BODY$;
 
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\    
 --Запросы задания 9--
@@ -723,19 +726,18 @@ $$ LANGUAGE plpgsql;
 
 --Векторная фукнция для получения комнат, которые еще не были забронированы в определенные даты--
 CREATE OR REPLACE FUNCTION get_available_rooms_query(checkin_date DATE, checkout_date DATE)
-RETURNS TABLE(roomid INT, room TEXT, capacity INT, price NUMERIC) AS $$
+RETURNS TABLE(roomid INT, room VARCHAR, capacity INT, price INT) AS $$
 BEGIN
     RETURN QUERY
-    SELECT roomid, room, capacity, price
-    FROM room
-    WHERE roomid NOT IN (
-        SELECT roomid
-        FROM reservation
-        WHERE ('$checkout_date' <= departure AND '$checkout_date' >= checkindate) OR ('$checkin_date' <= departure AND '$checkin_date' >= checkindate)
+    SELECT r.roomid, r.room, r.capacity, r.price
+    FROM room r
+    WHERE r.roomid NOT IN (
+        SELECT re.roomid
+        FROM reservation re
+        WHERE (checkout_date <= re.departure AND checkout_date >= re.checkindate) OR (checkin_date <= re.departure AND checkin_date >= re.checkindate)
     );
 END;
 $$ LANGUAGE plpgsql;
-
 
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\    
 --Запросы задания 11--
