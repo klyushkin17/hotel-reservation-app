@@ -3,7 +3,6 @@ from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButto
 from PyQt5.QtGui import QIntValidator, QRegExpValidator
 from PyQt5.QtCore import QRegExp
 from datetime import datetime
-from UserMainWindow import UserMainWindow
 
 
 class ConfirmPaymentWindow(QWidget):
@@ -62,6 +61,10 @@ class ConfirmPaymentWindow(QWidget):
 
         self.setLayout(layout)
 
+    def closeEvent(self, event):
+        self.userMainWindow.unlockUserMainWindow()
+        event.accept()
+
     def confirmPayment(self):
         card_number = self.card_number_input.text()
         card_code = self.card_code_input.text()
@@ -92,7 +95,7 @@ class ConfirmPaymentWindow(QWidget):
         else:
             QMessageBox.warning(self, 'Ошибка', 'Пожалуйста, заполните обязательные поля!')
         
-        self.userMainWindow.unlockUserMainWindow()
+        self.close
         
 
 if __name__ == '__main__':

@@ -1,9 +1,9 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QRadioButton, QPushButton, QLabel, QMainWindow
-
 from ConnectionManager import ConnectionManager
 from UserMainWindow import UserMainWindow
 from RegistrationWindow import RegistrationWindow
+from AdminMainWindow import AdminMainWindow
 
 
 class ChooseRoleWindow(QWidget):
@@ -37,15 +37,15 @@ class ChooseRoleWindow(QWidget):
         global IS_ADMIN
         if self.user_radio.isChecked():
             connection = ConnectionManager("hoteldatabaseuser")     
-            IS_ADMIN = True
+            IS_ADMIN = False
             self.form1 = RegistrationWindow(connection, IS_ADMIN)
             self.form1.show()
             self.close()
 
         elif self.admin_radio.isChecked():
             connection = ConnectionManager("hoteldatabaseadmin")
-            IS_ADMIN = False
-            #self.form1 = MainWindow(connection, IS_ADMIN)
+            IS_ADMIN = True
+            self.form1 = AdminMainWindow(connection, IS_ADMIN)
             self.form1.show()
             self.close()
 

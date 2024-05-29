@@ -70,6 +70,10 @@ class UserMainWindow(QWidget):
     
     def unlockUserMainWindow(self):
         self.setEnabled(True)
+
+    def lockUserMainWindow(self):
+        self.setDisabled(True)
+            
             
 
     def onSearchButtonClicked(self):

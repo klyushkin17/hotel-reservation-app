@@ -1,4 +1,5 @@
 from PyQt5.QtWidgets import QDialog, QPushButton, QLabel, QGridLayout, QWidget, QApplication
+from PyQt5.QtCore import Qt
 from ConfirmPaymentWindow import ConfirmPaymentWindow
 
 class PaymentWindow(QWidget):
@@ -50,6 +51,11 @@ class PaymentWindow(QWidget):
         self.confirm_payment_window = ConfirmPaymentWindow(self.conn, self.clientId, self.roomId, self.checkin_date, self.checkout_date, self.total_price, self.userMainWindow)
         self.confirm_payment_window.show()
         self.close()
+        self.userMainWindow.lockUserMainWindow()
+    
+    def closeEvent(self, event):
+        self.userMainWindow.unlockUserMainWindow()
+        event.accept()
 
 if __name__ == '__main__':
     import sys
