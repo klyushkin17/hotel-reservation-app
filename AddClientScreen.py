@@ -1,15 +1,14 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox
-from AuthorizationWindow import AuthorizationWindow
-from UserMainWindow import UserMainWindow
 
-class RegistrationWindow(QWidget):
-    def __init__(self, conn, IS_ADMIN):
+class AddClientScreen(QWidget):
+    def __init__(self, conn, AdminMainWindow):
         super().__init__()
         self.conn = conn
+        self.AdminMainWindow = AdminMainWindow
 
-        self.setWindowTitle('Регистрация')
-        self.setFixedSize(300, 400)
+        self.setWindowTitle('Добавление клиента')
+        self.setFixedSize(400, 350)
         
         self.name_label = QLabel('Имя*:')
         self.name_input = QLineEdit()
@@ -23,12 +22,9 @@ class RegistrationWindow(QWidget):
         self.email_label = QLabel('Почта:')
         self.email_input = QLineEdit()
         
-        self.auth_label = QLabel('<a href="#">Уже есть аккаунт?</a>')
-        self.auth_label.setOpenExternalLinks(False)
-        self.auth_label.linkActivated.connect(self.onAuthorizationLinkClicked)
-        
-        self.submit_button = QPushButton('Зарегистрироваться')
+        self.submit_button = QPushButton('Добавить')
         self.submit_button.clicked.connect(self.onRegistrationButtonClicked)
+        self.submit_button.setFixedHeight(40)
         
         layout = QVBoxLayout()
         layout.addWidget(self.name_label)
@@ -40,9 +36,12 @@ class RegistrationWindow(QWidget):
         layout.addWidget(self.email_label)
         layout.addWidget(self.email_input)
         layout.addWidget(self.submit_button)
-        layout.addWidget(self.auth_label)
         
         self.setLayout(layout)
+
+    def closeEvent(self, event):
+        self.AdminMainWindow.enableAdminMainWindow()
+        event.accept()
         
     def onRegistrationButtonClicked(self):
         name = self.name_input.text()
@@ -63,28 +62,19 @@ class RegistrationWindow(QWidget):
                         try:
                             with self.conn as conn:
                                 with conn.cursor() as cursor:
-                                    cursor.execute("CALL insert_client_get_last_index_transaction(%s, %s, %s, %s, %s)", (lastname, name, phone, email, None))
-                                    out_client_id = 0
-                                    for record in cursor.fetchall():
-                                        out_client_id = record[0]  
+                                    cursor.execute("CALL insert_client_get_last_index_transaction(%s, %s, %s, %s, %s)", (lastname, name, phone, email, None)) 
                                     conn.commit()
-                                    QMessageBox.information(self, 'Успех', f'Добро пожаловать!')
+                                    self.AdminMainWindow.enableAdminMainWindow()
+                                    self.close()
+                                    QMessageBox.information(self, 'Успех', f'Клиент добавлен!')
                         except Exception as e:
                             QMessageBox.warning(self, 'Ошибка', f'Пользователь с таким номером телефона уже существует')
                     else:
                         QMessageBox.warning(self, 'Ошибка', 'Пожалуйста, заполните обязательные поля!')
-        
-        self.user_main_window = UserMainWindow(self.conn, out_client_id)
-        self.user_main_window.show()
-        self.close()
-           
-    def onAuthorizationLinkClicked(self, url):
-        self.close()
-        self.auth_window = AuthorizationWindow(self.conn)
-        self.auth_window.show()
+       
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    registration_form = RegistrationWindow()
+    registration_form = AddClientScreen()
     registration_form.show()
     sys.exit(app.exec_())

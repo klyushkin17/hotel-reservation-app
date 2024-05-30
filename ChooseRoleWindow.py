@@ -20,7 +20,6 @@ class ChooseRoleWindow(QWidget):
 
         self.label = QLabel('Выберите роль:', self).setFixedWidth(200)  
     
-
         self.user_radio = QRadioButton('Пользователь', self)
         self.admin_radio = QRadioButton('Администратор', self)
 

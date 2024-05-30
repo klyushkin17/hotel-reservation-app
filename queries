@@ -293,158 +293,6 @@ CREATE TRIGGER olap_add_payment
 AFTER INSERT OR UPDATE OR DELETE ON payment
 FOR EACH ROW EXECUTE FUNCTION olap_add();
 
---Создание триггеров и функций к ним для автообновления id записей после удаления--
---Для таблицы payment--
-CREATE OR REPLACE FUNCTION update_primary_key_sequence_payment()
-RETURNS TRIGGER AS $$
-DECLARE
-    counter INTEGER;
-BEGIN
-    counter := 0;
-    FOR i IN OLD.paymentid .. (SELECT MAX(paymentid) FROM payment)
-    LOOP
-        UPDATE payment
-        SET paymentid = i - counter
-        WHERE paymentid = i;
-        
-        counter := counter + 1;
-    END LOOP;
-
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_update_primary_key_sequence_peyment
-AFTER DELETE ON payment
-FOR EACH ROW
-EXECUTE FUNCTION update_primary_key_sequence_payment();
-
---Для таблицы client--
-CREATE OR REPLACE FUNCTION update_primary_key_sequence_client()
-RETURNS TRIGGER AS $$
-DECLARE
-    counter INTEGER;
-BEGIN
-    counter := 0;
-    FOR i IN OLD.clientid .. (SELECT MAX(clientid) FROM client)
-    LOOP
-        UPDATE client
-        SET clientid = i - counter
-        WHERE clientid = i;
-        
-        counter := counter + 1;
-    END LOOP;
-
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_update_primary_key_sequence_client
-AFTER DELETE ON client
-FOR EACH ROW
-EXECUTE FUNCTION update_primary_key_sequence_client();
-
---Для таблицы room--
-CREATE OR REPLACE FUNCTION update_primary_key_sequence_room()
-RETURNS TRIGGER AS $$
-DECLARE
-    counter INTEGER;
-BEGIN
-    counter := 0;
-    FOR i IN OLD.roomid .. (SELECT MAX(roomid) FROM room)
-    LOOP
-        UPDATE room
-        SET roomid = i - counter
-        WHERE roomid = i;
-        
-        counter := counter + 1;
-    END LOOP;
-
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_update_primary_key_sequence_room
-AFTER DELETE ON room
-FOR EACH ROW
-EXECUTE FUNCTION update_primary_key_sequence_room();
-
---Для таблицы reservation--
-CREATE OR REPLACE FUNCTION update_primary_key_sequence_reservation()
-RETURNS TRIGGER AS $$
-DECLARE
-    counter INTEGER;
-BEGIN
-    counter := 0;
-    FOR i IN OLD.reservationid .. (SELECT MAX(reservationid) FROM reservation)
-    LOOP
-        UPDATE reservation
-        SET reservationid = i - counter
-        WHERE reservationid = i;
-        
-        counter := counter + 1;
-    END LOOP;
-
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_update_primary_key_sequence_reservation
-AFTER DELETE ON reservation
-FOR EACH ROW
-EXECUTE FUNCTION update_primary_key_sequence_reservation();
-
---Создание триггеров и функций для удаление связанных с текущей таблице записей в других таблицах--
---Удаление из таблицы reservation при удалении записи из таблицы client--
-CREATE OR REPLACE FUNCTION delete_related_reservations() 
-RETURNS TRIGGER AS $$
-BEGIN
-    DELETE FROM reservation
-    WHERE clientid = OLD.clientid;
-    
-    RETURN OLD;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_delete_related_reservations
-AFTER DELETE ON client
-FOR EACH ROW
-EXECUTE FUNCTION delete_related_reservations();
-
-
---Удаление из таблицы reservation при удалении записи из таблицы room--
-CREATE OR REPLACE FUNCTION delete_related_to_rooms_reservations() 
-RETURNS TRIGGER AS $$
-BEGIN
-    DELETE FROM reservation
-    WHERE roomid = OLD.roomid;
-    
-    RETURN OLD;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_delete_related_to_rooms_reservations
-AFTER DELETE ON room
-FOR EACH ROW
-EXECUTE FUNCTION delete_related_to_rooms_reservations();
-
-
---Удаление из таблицы payment при удаление записи из таблицы reservation--
-CREATE OR REPLACE FUNCTION delete_related_payments() 
-RETURNS TRIGGER AS $$
-BEGIN
-    DELETE FROM payment
-    WHERE reservationid = OLD.reservationid;
-    
-    RETURN OLD;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_delete_related_payments
-AFTER DELETE ON reservation
-FOR EACH ROW
-EXECUTE FUNCTION delete_related_payments();
-
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 --Запросы задания 6--
 --Функция для вставки данных в olap--
@@ -496,14 +344,38 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION delete_room(
-    room_id_int INT
-) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION public.delete_room(
+	room_id integer)
+    RETURNS void
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE PARALLEL UNSAFE
+AS $BODY$
 BEGIN
+    PERFORM public.delete_related_to_room_reservations(room_id);
+    
     DELETE FROM room
-    WHERE roomid = room_id_int;
+    WHERE roomid = room_id;
 END;
-$$ LANGUAGE plpgsql;
+$BODY$;
+
+CREATE OR REPLACE FUNCTION public.delete_related_to_room_reservations(
+	room_id integer)
+    RETURNS void
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE PARALLEL UNSAFE
+AS $BODY$
+BEGIN
+    DELETE FROM payment
+    WHERE reservationid IN (SELECT reservationid FROM reservation WHERE roomid = room_id);
+
+    DELETE FROM reservation
+    WHERE roomid = room_id;
+
+    RETURN;
+END;
+$BODY$;
 
 CREATE OR REPLACE FUNCTION update_room(
     room_id_int INT,
@@ -539,14 +411,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION delete_reservation(
-    reservation_id_int INT
-) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION public.delete_related_to_room_reservations(
+	room_id integer)
+    RETURNS void
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE PARALLEL UNSAFE
+AS $BODY$
 BEGIN
+    DELETE FROM payment
+    WHERE reservationid IN (SELECT reservationid FROM reservation WHERE roomid = room_id);
+
     DELETE FROM reservation
-    WHERE reservationid = reservation_id_int;
+    WHERE roomid = room_id;
+
+    RETURN;
 END;
-$$ LANGUAGE plpgsql;
+$BODY$;
 
 CREATE OR REPLACE FUNCTION update_reservation(
     reservation_id_int INT,
@@ -595,18 +476,26 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION update_client(
-    client_id INT,
-    client_surname VARCHAR(100),
-    client_name VARCHAR(100),
-    phone_number VARCHAR(15),
-    client_email VARCHAR(100)
-) RETURNS VOID AS $$
+    client_id integer,
+    new_client_surname character varying,
+    new_client_name character varying,
+    new_client_phonenumber character varying,
+    new_client_email character varying)
+RETURNS void
+AS $$
 BEGIN
-    UPDATE client
-    SET surname = client_surname, name = client_name, phonenumber = phone_number, email = client_email
-    WHERE clientid = client_id;
+    IF NOT EXISTS (SELECT 1 FROM client WHERE phonenumber = new_client_phonenumber AND clientid <> client_id) THEN
+        UPDATE client
+        SET surname = new_client_surname,
+            name = new_client_name,
+            phonenumber = new_client_phonenumber,
+            email = new_client_email
+        WHERE clientid = client_id;
+    ELSE
+        RAISE EXCEPTION 'User with the same phone number already exists';
+    END IF;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE 'plpgsql';
 
 --Функции для таблицы payment--
 CREATE OR REPLACE FUNCTION add_payment(
@@ -755,8 +644,12 @@ $$ LANGUAGE plpgsql;
 --Запросы задания 11--
 --Запрос для создания роли hoteldatabaseadmin_role--
 CREATE ROLE hoteldatabaseadmin_role;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO hoteldatabaseadmin_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO hoteldatabaseadmin_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE client TO hoteldatabaseadmin_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE payment TO hoteldatabaseadmin_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE reservation TO hoteldatabaseadmin_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE room TO hoteldatabaseadmin_role;
+GRANT INSERT ON public.olap TO hoteldatabaseadmin_role;
+GRANT USAGE, SELECT ON SEQUENCE olap_operationid_seq TO hoteldatabaseadmin_role;
 
 --Запрос для создания роли hoteldatabaseuser_role--
 CREATE ROLE hoteldatabaseuser_role;

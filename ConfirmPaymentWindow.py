@@ -93,7 +93,7 @@ class ConfirmPaymentWindow(QWidget):
             else:
                 QMessageBox.warning(self, 'Ошибка', 'Дата введена некорректно')
         else:
-            QMessageBox.warning(self, 'Ошибка', 'Пожалуйста, заполните обязательные поля!')
+            QMessageBox.warning(self, 'Ошибка', 'Пожалуйста, заполните все поля!')
         
         self.close
         
