@@ -22,11 +22,15 @@ class UserMainWindow(QWidget):
         
         checkin_label = QLabel("Дата въезда:")
         self.checkin_date = QDateEdit()
+        self.checkin_date.setCalendarPopup(True)
+        self.checkin_date.setDateRange(QDate.currentDate(), QDate(2100, 12, 31))
         date_layout.addWidget(checkin_label)
         date_layout.addWidget(self.checkin_date)
         
         checkout_label = QLabel("Дата выезда:")
         self.checkout_date = QDateEdit()
+        self.checkout_date.setCalendarPopup(True)
+        self.checkout_date.setDateRange(QDate.currentDate(), QDate(2100, 12, 31))
         date_layout.addWidget(checkout_label)
         date_layout.addWidget(self.checkout_date)
 

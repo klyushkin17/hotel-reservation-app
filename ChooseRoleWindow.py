@@ -16,7 +16,7 @@ class ChooseRoleWindow(QWidget):
         self.setWindowTitle('Выбор роли')
         self.setFixedSize(300, 200)
 
-        layout = QVBoxLayout()
+        layout = QVBoxLayout()  
 
         self.label = QLabel('Выберите роль:', self).setFixedWidth(200)  
     
