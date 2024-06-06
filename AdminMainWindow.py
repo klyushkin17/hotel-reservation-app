@@ -9,6 +9,8 @@ from EditRoomScreen import EditRoomScreen
 from AddReservationScreen import AddReservationScreen
 from datetime import datetime
 from EditReservationScreen import EditReservationScreen
+from AddPaymentScreen import AddPaymentScreen
+from EditPaymentScreen import EditPaymentScreen
 
 class AdminMainWindow(QMainWindow):
     def __init__(self, conn, isAdmin):
@@ -249,7 +251,11 @@ class AdminMainWindow(QMainWindow):
             self.add_reservation_screen = AddReservationScreen(self.conn, self)
             self.add_reservation_screen.show()
             self.setDisabled(True)
-     
+        elif (table_widget == self.payment_table):
+            self.add_payment_screen = AddPaymentScreen(self.conn, self)
+            self.add_payment_screen.show()
+            self.setDisabled(True)
+
     def edit_row(self, table_widget):
         if (table_widget == self.client_table):
             selected_row = table_widget.currentRow()
@@ -287,6 +293,22 @@ class AdminMainWindow(QMainWindow):
                 check_out_date = table_widget.item(selected_row, 6).text()
 
                 self.edit_reservation_screen = EditReservationScreen(self.conn, reservation_id, client_data, client_id, room, check_id_date, check_out_date, self)
+                self.edit_reservation_screen.show()
+                self.setDisabled(True)
+        
+        elif (table_widget == self.payment_table):
+            selected_row = table_widget.currentRow()
+            if selected_row != -1:
+                payment_id = table_widget.item(selected_row, 0).text()
+                payment_type = table_widget.item(selected_row, 1).text()
+                card_number = table_widget.item(selected_row, 2).text()
+                card_code = table_widget.item(selected_row, 3).text()
+                mounth = table_widget.item(selected_row, 4).text()
+                year = table_widget.item(selected_row, 5).text()
+                reservation_id = table_widget.item(selected_row, 6).text()
+                total_payment = table_widget.item(selected_row, 7).text()
+
+                self.edit_reservation_screen = EditPaymentScreen(self.conn, self, payment_id, payment_type, card_number, card_code, mounth, year, total_payment, reservation_id)
                 self.edit_reservation_screen.show()
                 self.setDisabled(True)
         
@@ -331,6 +353,20 @@ class AdminMainWindow(QMainWindow):
                     QMessageBox.warning(self, 'Ошибка', f'Не удалось удалить бронирование: {str(e)}')
                 self.refresh_tables() 
 
+        elif (table_widget == self.payment_table):
+            selected_row = table_widget.currentRow()
+            if selected_row != -1:
+                payment_id = table_widget.item(selected_row, 0).text()
+                try:
+                    with self.conn as conn:
+                        with conn.cursor() as cursor:
+                            cursor.execute("SELECT delete_payment(%s)", (payment_id,))
+                            conn.commit()
+                            QMessageBox.information(self, 'Успех', f'Оплата удалена')
+                except Exception as e:
+                    QMessageBox.warning(self, 'Ошибка', f'Не удалось удалить оплату')
+                self.refresh_tables() 
+
 
     def display_data(self, table_widget, query):
         with self.conn as conn:
@@ -361,7 +397,8 @@ class AdminMainWindow(QMainWindow):
                             item.setFont(QFont("Arial", 10)) 
                             table_widget.setItem(i, j, item)
                     table_widget.setColumnHidden(0, True)     
-                    table_widget.setColumnHidden(1, True)     
+                    if table_widget == self.reservation_table:
+                        table_widget.setColumnHidden(1, True)  
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

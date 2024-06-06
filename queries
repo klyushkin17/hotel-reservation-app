@@ -411,21 +411,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION public.delete_related_to_room_reservations(
-	room_id integer)
+CREATE OR REPLACE FUNCTION public.delete_reservation(
+	reservation_id integer)
     RETURNS void
     LANGUAGE 'plpgsql'
     COST 100
     VOLATILE PARALLEL UNSAFE
 AS $BODY$
 BEGIN
-    DELETE FROM payment
-    WHERE reservationid IN (SELECT reservationid FROM reservation WHERE roomid = room_id);
-
+    delete from payment
+	where reservationid = reservation_id;
+    
     DELETE FROM reservation
-    WHERE roomid = room_id;
-
-    RETURN;
+    WHERE reservationid = reservation_id;
 END;
 $BODY$;
 
@@ -466,14 +464,38 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION delete_client(
-    client_id INT
-) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION public.delete_client(
+	client_id integer)
+    RETURNS void
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE PARALLEL UNSAFE
+AS $BODY$
 BEGIN
+    PERFORM public.delete_related_to_client_reservations(client_id);
+    
     DELETE FROM client
     WHERE clientid = client_id;
 END;
-$$ LANGUAGE plpgsql;
+$BODY$;
+
+CREATE OR REPLACE FUNCTION public.delete_related_to_client_reservations(
+	client_id integer)
+    RETURNS void
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE PARALLEL UNSAFE
+AS $BODY$
+BEGIN
+    DELETE FROM payment
+    WHERE reservationid IN (SELECT reservationid FROM reservation WHERE clientid = client_id);
+
+    DELETE FROM reservation
+    WHERE clientid = client_id;
+
+    RETURN;
+END;
+$BODY$;
 
 CREATE OR REPLACE FUNCTION update_client(
     client_id integer,
